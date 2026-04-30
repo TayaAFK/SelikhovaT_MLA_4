@@ -20,7 +20,8 @@ def scale_data(frame):
     return X_scale, y, scaler
 
 if __name__ == "__main__":
-    df = pd.read_csv("./df_clear.csv")
+    mlflow.set_tracking_uri("file:///var/lib/jenkins/workspace/Download/mlruns")
+    df = pd.read_csv("/var/lib/jenkins/workspace/Download/df_clear.csv")
     
     X, y, scaler = scale_data(df)
     X_train, X_val, y_train, y_val = train_test_split(
@@ -59,11 +60,14 @@ if __name__ == "__main__":
         joblib.dump(best_model, "sleep_model.pkl")
         joblib.dump(scaler, "scaler.pkl")
 
-    dfruns = mlflow.search_runs()
+    experiment = mlflow.get_experiment_by_name("sleep_disorder_classification")
+    dfruns = mlflow.search_runs(experiment_ids=[experiment.experiment_id])
+
     best_run = dfruns.sort_values("metrics.accuracy", ascending=False).iloc[0]
+    
     path2model = best_run['artifact_uri'].replace("file://", "") + '/model'
     
-    with open("best_model.txt", "w") as f:
+    with open("/var/lib/jenkins/workspace/Download/best_model.txt", "w") as f:
         f.write(path2model)
     
-    print(path2model)
+    print(f"Model saved at: {path2model}")
