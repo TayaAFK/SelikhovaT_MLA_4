@@ -66,4 +66,4 @@ if __name__ == "__main__":
     with open("best_model.txt", "w") as f:
         f.write(path2model)
     
-    print(f"Best model path: {path2model}")
+    print(path2model)
