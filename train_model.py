@@ -3,6 +3,7 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import joblib
+import os
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import SGDClassifier
@@ -20,8 +21,10 @@ def scale_data(frame):
     return X_scale, y, scaler
 
 if __name__ == "__main__":
-    mlflow.set_tracking_uri("file:///var/lib/jenkins/workspace/Download/mlruns")
-    df = pd.read_csv("/var/lib/jenkins/workspace/Download/df_clear.csv")
+    base_path = "/var/lib/jenkins/workspace/Download"
+    mlflow.set_tracking_uri(f"file://{base_path}/mlruns")
+    
+    df = pd.read_csv(f"{base_path}/df_clear.csv")
     
     X, y, scaler = scale_data(df)
     X_train, X_val, y_train, y_val = train_test_split(
@@ -36,7 +39,7 @@ if __name__ == "__main__":
 
     mlflow.set_experiment("sleep_disorder_classification")
     
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model = SGDClassifier(random_state=42)
         clf = GridSearchCV(model, params, cv=3, n_jobs=4)
         clf.fit(X_train, y_train)
@@ -49,7 +52,6 @@ if __name__ == "__main__":
         prec = precision_score(y_val, y_pred, average='weighted')
         
         mlflow.log_params(clf.best_params_)
-        
         mlflow.log_metric("accuracy", acc)
         mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("precision", prec)
@@ -57,17 +59,14 @@ if __name__ == "__main__":
         signature = infer_signature(X_train, best_model.predict(X_train))
         mlflow.sklearn.log_model(best_model, "model", signature=signature)
         
-        joblib.dump(best_model, "sleep_model.pkl")
-        joblib.dump(scaler, "scaler.pkl")
+        joblib.dump(best_model, f"{base_path}/sleep_model.pkl")
+        joblib.dump(scaler, f"{base_path}/scaler.pkl")
+        
+        run_id = run.info.run_id
+        exp_id = run.info.experiment_id
+        path2model = f"{base_path}/mlruns/{exp_id}/{run_id}/artifacts/model"
 
-    experiment = mlflow.get_experiment_by_name("sleep_disorder_classification")
-    dfruns = mlflow.search_runs(experiment_ids=[experiment.experiment_id])
-
-    best_run = dfruns.sort_values("metrics.accuracy", ascending=False).iloc[0]
-    
-    path2model = best_run['artifact_uri'].replace("file://", "") + '/model'
-    
-    with open("/var/lib/jenkins/workspace/Download/best_model.txt", "w") as f:
+    with open(f"{base_path}/best_model.txt", "w") as f:
         f.write(path2model)
     
     print(f"Model saved at: {path2model}")
